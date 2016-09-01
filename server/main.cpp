@@ -47,7 +47,11 @@
 GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 #define GST_DEFAULT_NAME "KurentoMediaServer"
 
+#ifdef G_OS_WIN32
+const std::string DEFAULT_CONFIG_FILE = "../etc/kurento/kurento.conf.json";
+#else
 const std::string DEFAULT_CONFIG_FILE = "/etc/kurento/kurento.conf.json";
+#endif
 const std::string ENV_PREFIX = "KURENTO_";
 const int DEFAULT_LOG_FILE_SIZE = 100;
 const int DEFAULT_NUMBER_LOG_FILE = 10;
@@ -73,6 +77,7 @@ createTransportFromConfig (boost::property_tree::ptree &config)
   return transport;
 }
 
+#ifdef G_OS_UNIX
 static void
 signal_handler (int signo)
 {
@@ -97,6 +102,7 @@ signal_handler (int signo)
     break;
   }
 }
+#endif
 
 static void
 kms_init_dependencies (int *argc, char ***argv)
@@ -116,7 +122,9 @@ kms_init_dependencies (int *argc, char ***argv)
 int
 main (int argc, char **argv)
 {
+#ifdef G_OS_UNIX
   struct sigaction signalAction;
+#endif
   std::shared_ptr<Transport> transport;
   boost::property_tree::ptree config;
   std::string confFile;
@@ -228,12 +236,14 @@ main (int argc, char **argv)
     exit (1);
   }
 
+#ifdef G_OS_UNIX
   /* Install our signal handler */
   signalAction.sa_handler = signal_handler;
 
   sigaction (SIGINT, &signalAction, NULL);
   sigaction (SIGTERM, &signalAction, NULL);
   sigaction (SIGPIPE, &signalAction, NULL);
+#endif
 
   GST_INFO ("Kmsc version: %s", get_version () );
   GST_INFO ("Compiled at: %s %s", __DATE__, __TIME__ );

@@ -24,8 +24,10 @@
 
 #include <websocketpp/client.hpp>
 #include <websocketpp/config/asio.hpp>
+#include <mutex>
 #include <thread>
 #include <atomic>
+#include <condition_variable>
 
 namespace kurento
 {
@@ -38,8 +40,8 @@ class WebSocketRegistrar
 {
 public:
   WebSocketRegistrar (const std::string &registrarAddress,
-                      const std::string &localAddress, ushort localPort,
-                      ushort localSecurePort, const std::string &path);
+                      const std::string &localAddress, unsigned short localPort,
+                      unsigned short localSecurePort, const std::string &path);
   ~WebSocketRegistrar();
 
   void start ();
@@ -48,8 +50,8 @@ public:
 private:
 
   std::string localAddress;
-  ushort localPort;
-  ushort localSecurePort;
+  unsigned short localPort;
+  unsigned short localSecurePort;
   std::string path;
 
   std::string registrarAddress;

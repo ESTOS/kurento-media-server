@@ -5,7 +5,7 @@ set (TRANSPORT_SOURCES
   TransportFactory.hpp
 )
 
-add_library (transport ${TRANSPORT_SOURCES})
+add_library (transport STATIC ${TRANSPORT_SOURCES})
 
 add_dependencies(transport websocketTransport)
 

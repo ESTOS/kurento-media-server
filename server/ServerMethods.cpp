@@ -733,7 +733,7 @@ ServerMethods::transaction (const Json::Value &params, Json::Value &response)
   JsonRpc::getArray (params, "operations", operations);
   Json::Value responses;
 
-  for (uint i = 0; i < operations.size(); i++) {
+  for (unsigned i = 0; i < operations.size(); i++) {
     bool ret;
 
     Json::Value &reqParams = operations[i][JSON_RPC_PARAMS];

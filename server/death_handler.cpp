@@ -37,7 +37,11 @@
 #include "death_handler.hpp"
 #include <assert.h>
 #include <cxxabi.h>
+#ifdef __linux__
 #include <execinfo.h>
+#include <wait.h>
+#include <dlfcn.h>
+#endif
 #include <malloc.h>
 #include <pthread.h>
 #include <signal.h>
@@ -46,11 +50,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
-#include <wait.h>
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-#include <dlfcn.h>
 
 #include <string>
 
@@ -155,13 +157,19 @@ bool DeathHandler::color_output_ = true;
 bool DeathHandler::thread_safe_ = true;
 char *DeathHandler::memory_ = NULL;
 
+#ifdef __linux__
+
 typedef void (*sa_sigaction_handler) (int, siginfo_t *, void *);
+
+#endif
 
 DeathHandler::DeathHandler()
 {
   if (memory_ == NULL) {
     memory_ = new char[kNeededMemory];
   }
+
+#ifdef __linux__
 
   struct sigaction sa;
 
@@ -176,10 +184,16 @@ DeathHandler::DeathHandler()
   sigaction (SIGABRT, &sa, NULL);
 
   sigaction (SIGFPE, &sa, NULL);
+
+#endif
+
 }
 
 DeathHandler::~DeathHandler()
 {
+
+#ifdef __linux__
+
   struct sigaction sa;
 
   sigaction (SIGSEGV, NULL, &sa);
@@ -193,6 +207,9 @@ DeathHandler::~DeathHandler()
   sigaction (SIGFPE, NULL, &sa);
   sa.sa_handler = SIG_DFL;
   sigaction (SIGFPE, &sa, NULL);
+
+#endif
+
   delete[] memory_;
 }
 
@@ -291,13 +308,21 @@ void DeathHandler::set_thread_safe (bool value)
 
 INLINE static void safe_abort()
 {
+
+#ifdef __linux__
+
   struct sigaction sa;
   sigaction (SIGABRT, NULL, &sa);
   sa.sa_handler = SIG_DFL;
   kill (getppid(), SIGCONT);
   sigaction (SIGABRT, &sa, NULL);
+
+#endif
+
   abort();
 }
+
+#ifdef __linux__
 
 /// @brief Invokes addr2line utility to determine the function name
 /// and the line information from an address in the code segment.
@@ -447,6 +472,8 @@ static std::string nonStripped (const char *image)
   return image;
 }
 
+#endif
+
 /// @brief Used to workaround backtrace() usage of malloc().
 void *DeathHandler::MallocHook (size_t size,
                                 const void * /* caller */)
@@ -474,6 +501,9 @@ void *DeathHandler::MallocHook (size_t size,
 
 void DeathHandler::SignalHandler (int sig, void * /* info */, void *secret)
 {
+
+#ifdef __linux__
+
   // Stop all other running threads by forking
   pid_t forkedPid = fork();
 
@@ -778,6 +808,8 @@ void DeathHandler::SignalHandler (int sig, void * /* info */, void *secret)
     // Resume the parent process
     kill (getppid(), SIGCONT);
   }
+
+#endif
 
   // This is called in the child process
   _Exit (EXIT_SUCCESS);

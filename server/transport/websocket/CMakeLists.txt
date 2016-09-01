@@ -1,3 +1,8 @@
+if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DWIN32_LEAN_AND_MEAN=1")
+  set (WINSOCK_LIBRARIES libws2_32.a libmswsock.a librpcrt4.a libole32.a)
+endif ()
+
 set (WEBSOCKET_SOURCES
   WebSocketTransport.cpp
   WebSocketTransport.hpp
@@ -16,14 +21,16 @@ set_source_files_properties(${WEBSOCKET_SOURCES}
     COMPILE_FLAGS ${FLAGS}
 )
 
-add_library (websocketTransport
+add_library (websocketTransport STATIC
   ${WEBSOCKET_SOURCES}
 )
 
 target_link_libraries(websocketTransport
   ${GSTREAMER_LIBRARIES}
+  ${KMSCORE_LIBRARIES}
   ${JSONRPC_LIBRARIES}
   ${OPENSSL_LIBRARIES}
+  ${WINSOCK_LIBRARIES}
 )
 
 set_property (TARGET websocketTransport

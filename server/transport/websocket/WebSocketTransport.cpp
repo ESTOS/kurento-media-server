@@ -43,7 +43,7 @@ namespace kurento
 const std::string DEFAULT_LOCAL_ADDRESS = "localhost";
 
 /* Default config values */
-const ushort WEBSOCKET_PORT_DEFAULT = 8888;
+const unsigned short WEBSOCKET_PORT_DEFAULT = 8888;
 const std::string WEBSOCKET_PATH_DEFAULT = "kurento";
 const int WEBSOCKET_THREADS_DEFAULT = 10;
 
@@ -69,20 +69,21 @@ WebSocketTransport::WebSocketTransport (const boost::property_tree::ptree
                                         std::shared_ptr<Processor> processor) :
   processor (processor)
 {
-  ushort port;
-  ushort securePort;
+  unsigned short port;
+  unsigned short securePort;
   std::string registrarAddress;
   std::string localAddress;
 
-  port = config.get<ushort> ("mediaServer.net.websocket.port",
-                             WEBSOCKET_PORT_DEFAULT);
-  securePort = config.get<ushort> ("mediaServer.net.websocket.secure.port", 0);
+  port = config.get<unsigned short> ("mediaServer.net.websocket.port",
+                                     WEBSOCKET_PORT_DEFAULT);
+  securePort =
+    config.get<unsigned short> ("mediaServer.net.websocket.secure.port", 0);
 
   path = config.get<std::string> ("mediaServer.net.websocket.path",
                                   WEBSOCKET_PATH_DEFAULT);
 
   try {
-    n_threads = config.get<uint> ("mediaServer.net.websocket.threads");
+    n_threads = config.get<unsigned> ("mediaServer.net.websocket.threads");
 
     if (n_threads < 1) {
       throw boost::property_tree::ptree_bad_data ("Invalid threads number",
