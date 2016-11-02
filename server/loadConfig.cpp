@@ -212,7 +212,7 @@ loadModulesConfig (boost::property_tree::ptree &config,
     modulesConfigPath = modulesConfigDir.string();
   }
 
-  locations = split (modulesConfigPath, ':');
+  locations = split (modulesConfigPath, G_SEARCHPATH_SEPARATOR);
 
   for (std::string location : locations) {
     boost::filesystem::path dir (location);

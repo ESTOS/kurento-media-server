@@ -43,15 +43,15 @@
 
 #include "MediaSet.hpp"
 
+#ifdef G_OS_WIN32
+#include <windows.h>
+#endif
+
 #define GST_CAT_DEFAULT kurento_media_server
 GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 #define GST_DEFAULT_NAME "KurentoMediaServer"
 
-#ifdef G_OS_WIN32
-const std::string DEFAULT_CONFIG_FILE = "../etc/kurento/kurento.conf.json";
-#else
 const std::string DEFAULT_CONFIG_FILE = "/etc/kurento/kurento.conf.json";
-#endif
 const std::string ENV_PREFIX = "KURENTO_";
 const int DEFAULT_LOG_FILE_SIZE = 100;
 const int DEFAULT_NUMBER_LOG_FILE = 10;
@@ -145,6 +145,25 @@ main (int argc, char **argv)
   try {
     boost::program_options::options_description desc ("kurento-media-server usage");
 
+#ifdef G_OS_WIN32
+    HMODULE hModule = GetModuleHandleA (NULL);
+    static char pathToModule[MAX_PATH];
+    GetModuleFileNameA (hModule, pathToModule, MAX_PATH);
+    char *finish = pathToModule + strlen (pathToModule);
+
+    for (int bsc = 0; (bsc < 2) && (finish > pathToModule); finish--) {
+      if (*finish == '\\') {
+        bsc++;
+      }
+    }
+
+    *++finish = '\0';
+    const std::string default_config_file = std::string (pathToModule) +
+                                            "\\etc\\kurento\\kurento.conf.json";
+#else
+    const std::string default_config_file = DEFAULT_CONFIG_FILE;
+#endif
+
     desc.add_options()
     ("help,h", "Display this help message")
     ("version,v", "Display the version number")
@@ -152,7 +171,7 @@ main (int argc, char **argv)
     ("modules-path,p", boost::program_options::value<std::string>
      (&path), "Path where kurento modules can be found")
     ("conf-file,f", boost::program_options::value<std::string>
-     (&confFile)->default_value (DEFAULT_CONFIG_FILE),
+     (&confFile)->default_value (default_config_file),
      "Configuration file location")
     ("logs-path,d", boost::program_options::value <std::string> (&logs_path),
      "Path where debug files will be stored")
