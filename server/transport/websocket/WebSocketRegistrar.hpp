@@ -40,8 +40,8 @@ class WebSocketRegistrar
 {
 public:
   WebSocketRegistrar (const std::string &registrarAddress,
-                      const std::string &localAddress, unsigned short localPort,
-                      unsigned short localSecurePort, const std::string &path);
+                      std::string localAddress, unsigned short localPort,
+                      unsigned short localSecurePort, std::string path);
   ~WebSocketRegistrar();
 
   void start ();
@@ -56,10 +56,10 @@ private:
 
   std::string registrarAddress;
   std::thread thread;
-  std::atomic<bool> finished;
-  std::atomic<bool> secure;
+  std::atomic<bool> finished{};
+  std::atomic<bool> secure{};
 
-  std::chrono::milliseconds waitTime;
+  std::chrono::milliseconds waitTime{};
   std::mutex mutex;
   std::condition_variable cond;
 

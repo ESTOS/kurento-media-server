@@ -54,7 +54,7 @@ GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 const std::string DEFAULT_CONFIG_FILE = "/etc/kurento/kurento.conf.json";
 const std::string ENV_PREFIX = "KURENTO_";
 const int DEFAULT_LOG_FILE_SIZE = 100;
-const int DEFAULT_NUMBER_LOG_FILE = 10;
+const int DEFAULT_LOG_FILE_COUNT = 10;
 
 using namespace ::kurento;
 namespace logging = boost::log;
@@ -123,7 +123,7 @@ int
 main (int argc, char **argv)
 {
 #ifdef G_OS_UNIX
-  struct sigaction signalAction;
+  struct sigaction signalAction {};
 #endif
   std::shared_ptr<Transport> transport;
   boost::property_tree::ptree config;
@@ -174,18 +174,18 @@ main (int argc, char **argv)
      (&confFile)->default_value (default_config_file),
      "Configuration file location")
     ("logs-path,d", boost::program_options::value <std::string> (&logs_path),
-     "Path where debug files will be stored")
+     "Path where rotating log files will be stored")
     ("modules-config-path,c",
      boost::program_options::value <std::string> (&modulesConfigPath),
      "Path where modules config files can be found")
     ("log-file-size,s",
      boost::program_options::value <int> (&fileSize)->default_value (
        DEFAULT_LOG_FILE_SIZE),
-     "Maximum file size for log files in MB")
+     "Maximum file size for log files, in MB")
     ("number-log-files ,n",
      boost::program_options::value <int> (&fileNumber)->default_value (
-       DEFAULT_NUMBER_LOG_FILE),
-     "Maximum number of files to save");
+       DEFAULT_LOG_FILE_COUNT),
+     "Maximum number of log files to keep");
 
     boost::program_options::command_line_parser clp (argc, argv);
     clp.options (desc).allow_unregistered();
@@ -216,11 +216,13 @@ main (int argc, char **argv)
 
     boost::program_options::notify (vm);
 
+    kms_init_logging ();
+
     if (vm.count ("logs-path") ) {
-      if (kms_init_logging (logs_path, fileSize, fileNumber) ) {
-        GST_DEBUG ("Dumping logs to %s", logs_path.c_str() );
+      if (kms_init_logging_files (logs_path, fileSize, fileNumber) ) {
+        GST_INFO ("Logs storage path set to %s", logs_path.c_str() );
       } else {
-        GST_WARNING ("Can no set debugging path %s", logs_path.c_str() );
+        GST_WARNING ("Cannot set logs storage path to %s", logs_path.c_str() );
       }
     }
 
@@ -231,7 +233,7 @@ main (int argc, char **argv)
 
     if (vm.count ("version") || vm.count ("list") ) {
       // Disable log to just print version
-      gst_debug_remove_log_function_by_data (NULL);
+      gst_debug_remove_log_function_by_data (nullptr);
     }
 
     loadModules (path);
@@ -259,13 +261,12 @@ main (int argc, char **argv)
   /* Install our signal handler */
   signalAction.sa_handler = signal_handler;
 
-  sigaction (SIGINT, &signalAction, NULL);
-  sigaction (SIGTERM, &signalAction, NULL);
-  sigaction (SIGPIPE, &signalAction, NULL);
+  sigaction (SIGINT, &signalAction, nullptr);
+  sigaction (SIGTERM, &signalAction, nullptr);
+  sigaction (SIGPIPE, &signalAction, nullptr);
 #endif
 
-  GST_INFO ("Kmsc version: %s", get_version () );
-  GST_INFO ("Compiled at: %s %s", __DATE__, __TIME__ );
+  GST_INFO ("Kurento Media Server version: %s", get_version () );
 
   loadConfig (config, confFile, modulesConfigPath);
 
@@ -273,7 +274,9 @@ main (int argc, char **argv)
     config.get_optional<float> ("mediaServer.resources.killLimit");
 
   if (killResourceLimit) {
-    GST_INFO ("Resource limit is: %f", *killResourceLimit);
+    GST_INFO ("Using above %.2f%% of system limits will kill the server when no objects are alive",
+              *killResourceLimit * 100.0f);
+
     killServerOnLowResources (*killResourceLimit);
   }
 
@@ -282,14 +285,14 @@ main (int argc, char **argv)
   /* Start transport */
   transport->start ();
 
-  GST_INFO ("Mediaserver started");
+  GST_INFO ("Kurento Media Server started");
 
   loop->run ();
 
   transport->stop();
   MediaSet::deleteMediaSet();
 
-  GST_INFO ("Mediaserver stopped");
+  GST_INFO ("Kurento Media Server stopped");
 
   return 0;
 }

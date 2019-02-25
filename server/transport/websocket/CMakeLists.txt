@@ -14,7 +14,7 @@ set (WEBSOCKET_SOURCES
   WebSocketRegistrar.hpp
 )
 
-set(FLAGS "-D_WEBSOCKETPP_CPP11_STL_ -pthread")
+set(FLAGS "-D_WEBSOCKETPP_CPP11_STL_")
 
 set_source_files_properties(${WEBSOCKET_SOURCES}
   PROPERTIES
@@ -27,17 +27,16 @@ add_library (websocketTransport STATIC
 
 target_link_libraries(websocketTransport
   ${GSTREAMER_LIBRARIES}
-  ${KMSCORE_LIBRARIES}
   ${JSONRPC_LIBRARIES}
   ${OPENSSL_LIBRARIES}
+  ${KMSCORE_LIBRARIES}
   ${WINSOCK_LIBRARIES}
 )
 
 set_property (TARGET websocketTransport
   PROPERTY INCLUDE_DIRECTORIES
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/server/transport
-    ${CMAKE_SOURCE_DIR}/server/signalHandler
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${JSONRPC_INCLUDE_DIRS}
     ${GSTREAMER_INCLUDE_DIRS}
     ${KMSCORE_INCLUDE_DIRS}

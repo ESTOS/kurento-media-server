@@ -18,6 +18,8 @@
 #include "RequestCache.hpp"
 #include <gst/gst.h>
 
+#include <memory>
+
 #include "CacheEntry.hpp"
 
 #define GST_CAT_DEFAULT kurento_request_cache
@@ -32,9 +34,7 @@ RequestCache::RequestCache (unsigned int timeout)
   this->timeout = timeout;
 }
 
-RequestCache::~RequestCache ()
-{
-}
+RequestCache::~RequestCache() = default;
 
 void
 RequestCache::addResponse (std::string sessionId, std::string requestId,
@@ -43,27 +43,28 @@ RequestCache::addResponse (std::string sessionId, std::string requestId,
   std::shared_ptr<CacheEntry> entry;
   std::unique_lock<std::recursive_mutex> lock (mutex);
 
-  entry = std::shared_ptr<CacheEntry> (new CacheEntry (timeout, sessionId,
-                                       requestId, response) );
+  entry = std::make_shared<CacheEntry> (timeout, sessionId, requestId, response);
 
   cache[sessionId][requestId] = entry;
   entry->signalTimeout.connect ([this, sessionId, requestId] () {
-    std::unique_lock<std::recursive_mutex> lock (mutex);
+    std::unique_lock<std::recursive_mutex> lock (this->mutex);
+
     auto it1 = this->cache.find (sessionId);
 
     if (it1 == this->cache.end() ) {
       return;
     }
 
-    auto it2 = this->cache[sessionId].find (requestId);
+    auto &requestCache = it1->second;
+    auto it2 = requestCache.find (requestId);
 
-    if (it2 == this->cache[sessionId].end() ) {
+    if (it2 == requestCache.end() ) {
       return;
     }
 
-    this->cache[sessionId].erase (it2);
+    requestCache.erase (it2);
 
-    if (this->cache[sessionId].empty() ) {
+    if (requestCache.empty() ) {
       this->cache.erase (it1);
     }
   });
@@ -72,8 +73,6 @@ RequestCache::addResponse (std::string sessionId, std::string requestId,
 Json::Value
 RequestCache::getCachedResponse (std::string sessionId, std::string requestId)
 {
-  std::map<std::string, std::shared_ptr <CacheEntry>> requests;
-
   std::unique_lock<std::recursive_mutex> lock (mutex);
 
   auto it1 = cache.find (sessionId);
@@ -82,14 +81,15 @@ RequestCache::getCachedResponse (std::string sessionId, std::string requestId)
     throw CacheException ("Session not cached");
   }
 
-  requests = cache[sessionId];
-  auto it2 = requests.find (requestId);
+  auto &requestCache = it1->second;
+  auto it2 = requestCache.find (requestId);
 
-  if (it2 == requests.end() ) {
-    throw CacheException ("Response not cached");
+  if (it2 == requestCache.end() ) {
+    throw CacheException ("Request not cached");
   }
 
-  return requests[requestId]->getResponse();
+  auto &cacheEntry = it2->second;
+  return cacheEntry->getResponse();
 }
 
 RequestCache::StaticConstructor RequestCache::staticConstructor;

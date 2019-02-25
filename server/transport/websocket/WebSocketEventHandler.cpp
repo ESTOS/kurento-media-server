@@ -15,9 +15,12 @@
  *
  */
 
-#include <gst/gst.h>
 #include "WebSocketEventHandler.hpp"
+
+#include <gst/gst.h>
+#include <json/json.h>
 #include <jsonrpc/JsonRpcConstants.hpp>
+#include <utility>
 
 #define GST_CAT_DEFAULT kurento_websocket_event_handler
 GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
@@ -26,19 +29,16 @@ GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 namespace kurento
 {
 
-WebSocketEventHandler::WebSocketEventHandler (std::shared_ptr <MediaObjectImpl>
-    object, std::shared_ptr<WebSocketTransport> transport,
-    std::string sessionId) : EventHandler (object), transport (transport),
-  sessionId (sessionId)
-{
-
-}
+WebSocketEventHandler::WebSocketEventHandler (
+  std::shared_ptr<MediaObjectImpl> object,
+  std::shared_ptr<WebSocketTransport> transport, std::string sessionId)
+  : EventHandler (object), transport (std::move (transport) ),
+    sessionId (std::move (sessionId) ) {}
 
 void
 WebSocketEventHandler::sendEvent (Json::Value &value)
 {
   try {
-    Json::FastWriter writer;
     Json::Value rpc;
     Json::Value event;
     std::string eventStr;
@@ -49,8 +49,10 @@ WebSocketEventHandler::sendEvent (Json::Value &value)
     rpc [JSON_RPC_METHOD] = "onEvent";
     rpc [JSON_RPC_PARAMS] = event;
 
-    eventStr = writer.write (rpc);
-    GST_DEBUG ("Sending event: %s -> %s", eventStr.c_str(),
+    Json::StreamWriterBuilder writerFactory;
+    writerFactory["indentation"] = "";
+    eventStr = Json::writeString (writerFactory, rpc);
+    GST_DEBUG ("Sending event: %s, sessionId: %s", eventStr.c_str(),
                sessionId.c_str() );
 
     try {

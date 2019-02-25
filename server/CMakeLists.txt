@@ -42,7 +42,8 @@ target_link_libraries (kurento-media-server
 set_property (TARGET kurento-media-server
   PROPERTY INCLUDE_DIRECTORIES
     ${CMAKE_BINARY_DIR}
-    ${CMAKE_BINARY_DIR}/gen-cpp
+    ${CMAKE_BINARY_DIR}/gen-cpp  
+    ${CMAKE_CURRENT_BINARY_DIR}/..
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/transport
     ${KMSCORE_INCLUDE_DIRS}

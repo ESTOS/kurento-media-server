@@ -28,6 +28,7 @@
 #include <boost/property_tree/info_parser.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/xml_parser.hpp>
+#include <utility>
 
 #define GST_CAT_DEFAULT kurento_load_config
 GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
@@ -39,11 +40,11 @@ namespace kurento
 class ParseException : public virtual std::exception
 {
 public:
-  ParseException (const std::string &message) : message (message) {};
+  ParseException (std::string message) : message (std::move (message) ) {};
 
-  virtual ~ParseException() {};
+  ~ParseException() override = default;
 
-  virtual const char *what() const noexcept
+  const char *what() const noexcept override
   {
     return message.c_str();
   };
@@ -249,15 +250,14 @@ loadConfig (boost::property_tree::ptree &config, const std::string &file_name,
   boost::property_tree::write_json (oss, config, true);
   std::string infoConfig = oss.str();
 
-  GST_DEBUG ("Effective loaded config:\n%s", infoConfig.c_str() );
+  GST_INFO ("Loaded config in effect:\n%s", infoConfig.c_str() );
 }
 
 } /* kurento */
 
-static void init_debug (void) __attribute__ ( (constructor) );
+static void init_debug() __attribute__ ( (constructor) );
 
-static void
-init_debug (void)
+static void init_debug()
 {
   GST_DEBUG_CATEGORY_INIT (GST_CAT_DEFAULT, GST_DEFAULT_NAME, 0,
                            GST_DEFAULT_NAME);

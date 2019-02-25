@@ -15,9 +15,9 @@
  *
  */
 
-#include <gst/gst.h>
-
 #include "logging.hpp"
+
+#include <gst/gst.h>
 
 #include <boost/format.hpp>
 #include <boost/log/sinks/text_file_backend.hpp>
@@ -29,6 +29,7 @@
 #include <boost/log/sources/channel_logger.hpp>
 #include <boost/log/support/date_time.hpp>
 #include <boost/log/utility/manipulators/add_value.hpp>
+#include <boost/log/utility/exception_handler.hpp>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -45,20 +46,123 @@ typedef sinks::synchronous_sink< sinks::text_file_backend > sink_t;
 namespace kurento
 {
 
+// ----------------------------------------------------------------------------
+
+GST_DEBUG_CATEGORY_STATIC (kms_glib_debug);
+
+static GstDebugLevel
+g_log_level_to_gst_debug_level (GLogLevelFlags log_level)
+{
+  switch (log_level & G_LOG_LEVEL_MASK) {
+  case G_LOG_LEVEL_ERROR:
+    return GST_LEVEL_ERROR;
+
+  case G_LOG_LEVEL_CRITICAL:
+    return GST_LEVEL_ERROR;
+
+  case G_LOG_LEVEL_WARNING:
+    return GST_LEVEL_WARNING;
+
+  case G_LOG_LEVEL_MESSAGE:
+    return GST_LEVEL_FIXME;
+
+  case G_LOG_LEVEL_INFO:
+    return GST_LEVEL_INFO;
+
+  case G_LOG_LEVEL_DEBUG:
+    return GST_LEVEL_DEBUG;
+
+  default:
+    return GST_LEVEL_DEBUG;
+  }
+}
+
+/*
+ * Based on the Glib 2.48.2 default message handler, g_log_default_handler()
+ * https://github.com/GNOME/glib/blob/2.48.2/glib/gmessages.c#L1429
+ *
+ * NOTE: In Glib 2.50 they added a new logging mode, "structured logging", that
+ * maybe we need to check out in the future.
+ */
+/* these are emitted by the default log handler */
+#define DEFAULT_LEVELS (G_LOG_LEVEL_ERROR | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_WARNING | G_LOG_LEVEL_MESSAGE)
+/* these are filtered by G_MESSAGES_DEBUG by the default log handler */
+#define INFO_LEVELS (G_LOG_LEVEL_INFO | G_LOG_LEVEL_DEBUG)
+static void
+kms_glib_log_handler (const gchar   *log_domain,
+                      GLogLevelFlags log_level,
+                      const gchar   *message,
+                      gpointer       unused_data)
+{
+  const gchar *domains;
+
+  if ( (log_level & DEFAULT_LEVELS) || (log_level >> G_LOG_LEVEL_USER_SHIFT) ) {
+    goto emit;
+  }
+
+  domains = g_getenv ("G_MESSAGES_DEBUG");
+
+  if ( ( (log_level & INFO_LEVELS) == 0) ||
+       domains == NULL ||
+       (strcmp (domains, "all") != 0 && (!log_domain
+                                         || !strstr (domains, log_domain) ) ) ) {
+    return;
+  }
+
+emit:
+
+  /* we can be called externally with recursion for whatever reason */
+  if (log_level & G_LOG_FLAG_RECURSION) {
+    //_g_log_fallback_handler (log_domain, log_level, message, unused_data);
+    return;
+  }
+
+
+  // Forward Glib log messages through GStreamer logging
+
+  GstDebugCategory *category = kms_glib_debug;
+  GstDebugLevel level = g_log_level_to_gst_debug_level (log_level);
+  const gchar *file = log_domain ? log_domain : "(NULL domain)";
+  const gchar *function = "";
+  gint line = 0;
+  GObject *object = NULL;
+
+  if (!message) {
+    gst_debug_log (category, level, file, function, line, object, "%s",
+                   "(NULL message)");
+  } else {
+    gst_debug_log (category, level, file, function, line, object, "%s",
+                   message);
+  }
+}
+
+void
+kms_init_logging ()
+{
+  // Forward Glib log messages through GStreamer logging
+  GST_DEBUG_CATEGORY_INIT (kms_glib_debug, "glib", 0, "Glib logging");
+  g_log_set_default_handler (kms_glib_log_handler, NULL);
+}
+
+// ----------------------------------------------------------------------------
+
 /* kurento logging sinks */
 boost::shared_ptr< sink_t > system_sink;
 
 static std::string
 debug_object (GObject *object)
 {
-  if (object == NULL) {
+  if (object == nullptr) {
     return "";
   }
 
   if (GST_IS_PAD (object) && GST_OBJECT_NAME (object) ) {
     boost::format fmt ("<%s:%s> ");
-    fmt % (GST_OBJECT_PARENT (object) != NULL ? GST_OBJECT_NAME (GST_OBJECT_PARENT (
-             object) ) : "''") % GST_OBJECT_NAME (object);
+    fmt %
+    (GST_OBJECT_PARENT (object) != nullptr
+     ? GST_OBJECT_NAME (GST_OBJECT_PARENT (object) )
+     : "''") %
+    GST_OBJECT_NAME (object);
     return fmt.str();
   }
 
@@ -121,6 +225,12 @@ gst_debug_level_to_severity_level (GstDebugLevel level)
     return undefined;
   }
 }
+
+static void
+kms_log_function (GstDebugCategory *category, GstDebugLevel level,
+                  const gchar *file,
+                  const gchar *function, gint line, GObject *object,
+                  GstDebugMessage *message, gpointer user_data) G_GNUC_NO_INSTRUMENT;
 
 static void
 kms_log_function (GstDebugCategory *category, GstDebugLevel level,
@@ -191,12 +301,11 @@ system_formatter (logging::record_view const &rec,
 {
   auto date_time_formatter = expr::stream
                              << expr::format_date_time< boost::posix_time::ptime > ("TimeStamp",
-                                 "%Y-%m-%d %H:%M:%S,%f");
+                                 "%Y-%m-%dT%H:%M:%S,%f");
   date_time_formatter (rec, strm) << " ";
   strm << std::to_string (getpid() ) << " ";
-  strm << "[" <<
-       logging::extract< attrs::current_thread_id::value_type > ("ThreadID",
-           rec) << "] ";
+  strm << logging::extract< attrs::current_thread_id::value_type > ("ThreadID",
+       rec) << " ";
   strm << logging::extract< severity_level > ("Severity", rec) << " ";
   strm << logging::extract< std::string > ("Category", rec) << " ";
   strm << logging::extract< std::string > ("FileName", rec) << ":";
@@ -207,16 +316,16 @@ system_formatter (logging::record_view const &rec,
 }
 
 bool
-kms_init_logging (const std::string &path, int fileSize, int fileNumber)
+kms_init_logging_files (const std::string &path, int fileSize, int fileNumber)
 {
   gst_debug_remove_log_function (gst_debug_log_default);
-  gst_debug_add_log_function (kms_log_function, NULL, NULL);
+  gst_debug_add_log_function (kms_log_function, nullptr, nullptr);
 
   boost::shared_ptr< logging::core > core = logging::core::get();
 
   boost::shared_ptr< sinks::text_file_backend > backend =
     boost::make_shared< sinks::text_file_backend > (
-      keywords::file_name = path + "/" + "media-server_%Y-%m-%d_%H-%M-%S.%5N.pid" +
+      keywords::file_name = path + "/" + "%Y-%m-%dT%H%M%S.%5N.pid" +
                             std::to_string (getpid() ) + ".log",
       keywords::rotation_size = fileSize * 1024 * 1024,
       keywords::time_based_rotation = sinks::file::rotation_at_time_point (0, 0, 0)
@@ -236,7 +345,7 @@ kms_init_logging (const std::string &path, int fileSize, int fileNumber)
   );
 
   /* Set up where the rotated files will be stored */
-  init_file_collecting (system_sink, path + "/logs", fileSize, fileNumber);
+  init_file_collecting (system_sink, path, fileSize, fileNumber);
 
   /* Upon restart, scan the directory for files matching the file_name pattern */
   system_sink->locked_backend()->scan_for_files();
@@ -245,7 +354,22 @@ kms_init_logging (const std::string &path, int fileSize, int fileNumber)
 
   system_sink->set_formatter (&system_formatter);
 
+  /* Set an exception handler to manage error cases such as missing
+   * file write permissions */
+  struct ex_handler {
+    void operator() (std::runtime_error const &e) const
+    {
+      gst_debug_remove_log_function (kms_log_function);
+      gst_debug_add_log_function (gst_debug_log_default, nullptr, nullptr);
+      GST_ERROR ("Boost.Log runtime error: %s", e.what() );
+    }
+  };
+  core->set_exception_handler (logging::make_exception_handler <
+                               std::runtime_error > (ex_handler() ) );
+
   return true;
 }
+
+// ----------------------------------------------------------------------------
 
 }  /* kurento */

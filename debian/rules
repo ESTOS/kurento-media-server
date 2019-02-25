@@ -1,7 +1,10 @@
 #!/usr/bin/make -f
 
+# Uncomment this to enable verbose mode.
+#export DH_VERBOSE=1
+
 %:
-	dh $@
+	dh $@ --parallel
 
 override_dh_auto_configure:
 	export FINAL_INSTALL_DIR=/usr
@@ -10,4 +13,4 @@ override_dh_auto_configure:
 .PHONY: override_dh_strip
 
 override_dh_strip:
-	dh_strip --dbg-package=kurento-media-server-6.0-dbg
+	dh_strip --dbg-package=kurento-media-server-dbg

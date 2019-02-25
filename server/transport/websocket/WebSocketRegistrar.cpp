@@ -19,6 +19,9 @@
 #include <json/json.h>
 #include <gst/gst.h>
 
+#include <memory>
+#include <utility>
+
 #define GST_CAT_DEFAULT kurento_websocket_registrar
 GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 #define GST_DEFAULT_NAME "KurentoWebSocketRegistrar"
@@ -32,13 +35,13 @@ const std::chrono::seconds MAX_WAIT_TIME (10);
 typedef websocketpp::lib::shared_ptr<boost::asio::ssl::context> context_ptr;
 
 WebSocketRegistrar::WebSocketRegistrar (const std::string &registrarAddress,
-                                        const std::string &localAddress,
+                                        std::string localAddress,
                                         unsigned short localPort,
                                         unsigned short localSecurePort,
-                                        const std::string &path) :
-  localAddress (localAddress), localPort (localPort),
-  localSecurePort (localSecurePort), path (path),
-  registrarAddress (registrarAddress)
+                                        std::string path)
+  : localAddress (std::move (localAddress) ), localPort (localPort),
+    localSecurePort (localSecurePort), path (std::move (path) ),
+    registrarAddress (registrarAddress)
 {
   GST_INFO ("Registrar will be performed to: %s", registrarAddress.c_str () );
 }
@@ -110,8 +113,7 @@ WebSocketRegistrar::connectRegistrar ()
     GST_INFO ("Connecting registrar");
 
     if (registrarAddress.size() >= 3 && registrarAddress.substr (0, 3) == "wss") {
-      secureClient = std::shared_ptr<SecureWebSocketClient> (new
-                     SecureWebSocketClient() );
+      secureClient = std::make_shared<SecureWebSocketClient>();
       secureClient->clear_access_channels (websocketpp::log::alevel::all);
       secureClient->clear_error_channels (websocketpp::log::elevel::all);
 
@@ -156,7 +158,7 @@ WebSocketRegistrar::connectRegistrar ()
         GST_ERROR ("Cannot create connection %s", ec.message().c_str() );
       }
     } else {
-      client = std::shared_ptr<WebSocketClient> (new WebSocketClient() );
+      client = std::make_shared<WebSocketClient>();
       client->clear_access_channels (websocketpp::log::alevel::all);
       client->clear_error_channels (websocketpp::log::elevel::all);
 
@@ -215,7 +217,6 @@ WebSocketRegistrar::connectionOpen (std::shared_ptr<ClientType> client,
 {
   Json::Value req;
   Json::Value params;
-  Json::FastWriter writer;
   std::string request;
 
   waitTime = DEFAULT_WAIT_TIME;
@@ -235,7 +236,9 @@ WebSocketRegistrar::connectionOpen (std::shared_ptr<ClientType> client,
 
   req["params"] = params;
 
-  request = writer.write (req);
+  Json::StreamWriterBuilder writerFactory;
+  writerFactory["indentation"] = "";
+  request = Json::writeString (writerFactory, req);
   GST_DEBUG ("Registrar open, sending message: %s", request.c_str() );
 
   try {

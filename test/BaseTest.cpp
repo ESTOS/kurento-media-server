@@ -19,6 +19,7 @@
 
 #include "KurentoException.hpp"
 
+#include <memory>
 #include <websocketpp/config/asio_no_tls_client.hpp>
 #include <websocketpp/client.hpp>
 #include <thread>
@@ -60,9 +61,14 @@ F::write_config (const boost::filesystem::path &orig, uint port)
   boost::filesystem::create_directories (configDir);
   boost::filesystem::path newConfigFile = configDir / "config.conf.json";
 
+
   // Change port on config
   boost::property_tree::ptree config;
+
+  GST_WARNING ("DDD1");
   boost::property_tree::json_parser::read_json (orig.string(), config);
+  GST_WARNING ("DDD2");
+
   boost::property_tree::ptree &wsConfig =
     config.get_child ("mediaServer.net.websocket");
   wsConfig.erase ("port");
@@ -88,26 +94,35 @@ F::start_server ()
   conf_file = getenv ("MEDIA_SERVER_CONF_FILE");
   binary_dir = getenv ("SERVER_DIR");
 
-  if (conf_file == NULL) {
-    BOOST_FAIL ("No configuration file for mediaserver");
+  if (conf_file == nullptr) {
+    BOOST_FAIL ("No configuration file for Kurento Media Server");
   }
+
+  GST_WARNING ("CCC1");
 
   // Find an empty port
   boost::asio::io_service ios;
   boost::asio::ip::tcp::endpoint ep (boost::asio::ip::tcp::v6(), 0);
   boost::asio::ip::tcp::acceptor acceptor (ios, ep);
   acceptor.set_option (boost::asio::socket_base::reuse_address (true) );
+  GST_WARNING ("CCC2");
   acceptor.listen();
   uint port = acceptor.local_endpoint().port();
 
+  GST_WARNING ("CCC3");
   boost::filesystem::path configFile = write_config (boost::filesystem::path (
                                          conf_file), port);
+  GST_WARNING ("CCC4");
+
   create_ws_uri (port);
 
   GST_DEBUG ("Binding to port: %d", port);
   acceptor.close();
 
+
   pid = fork();
+
+  GST_WARNING ("CCC5");
 
   if (pid == 0) {
     std::string  confFileParam = "--conf-file=" + configFile.string();
@@ -196,7 +211,10 @@ Json::Value F::sendRequest (const Json::Value &request)
   BOOST_REQUIRE_MESSAGE (!sendingMessage, "Already sending a message");
 
   sendingMessage = true;
-  client->send (connectionHdl, writer.write (request),
+
+  Json::StreamWriterBuilder writerFactory;
+  writerFactory["indentation"] = "";
+  client->send (connectionHdl, Json::writeString (writerFactory, request),
                 websocketpp::frame::opcode::text);
 
   requestId = request[JSON_RPC_ID].asString();
@@ -236,7 +254,7 @@ void F::start_client()
   std::unique_lock <std::mutex> lock (mutex);
 
   while (!initialized && !terminate) {
-    client = std::shared_ptr <WebSocketClient> (new WebSocketClient() );
+    client = std::make_shared<WebSocketClient>();
 
     client->clear_access_channels (websocketpp::log::alevel::all);
     client->clear_error_channels (websocketpp::log::elevel::all);
@@ -274,7 +292,7 @@ void F::start_client()
 
 void F::stop_client (std::unique_lock <std::mutex> &lock)
 {
-  bool wasLocked;
+  bool wasLocked = false;
 
   if (lock) {
     wasLocked = true;
@@ -353,8 +371,11 @@ F::start ()
 
   id = 0;
 
+  GST_WARNING ("BBB1");
   start_server();
-  BOOST_REQUIRE_MESSAGE (pid > 0, "Error launching mediaserver");
+  GST_WARNING ("BBB2");
+
+  BOOST_REQUIRE_MESSAGE (pid > 0, "Error launching Kurento Media Server");
 
   clientThread = std::thread (std::bind (&F::start_client, this) );
 
@@ -366,6 +387,8 @@ F::start ()
     if (!initialized) {
       GST_INFO ("Waiting, %d times", retries);
       retries++;
+    } else {
+      GST_WARNING ("Initialized");
     }
   }
 
@@ -397,7 +420,7 @@ F::stop()
 
 F::F ()
 {
-  gst_init (NULL, NULL);
+  gst_init (nullptr, nullptr);
   GST_DEBUG_CATEGORY_INIT (GST_CAT_DEFAULT, GST_DEFAULT_NAME, 0,
                            GST_DEFAULT_NAME);
 }

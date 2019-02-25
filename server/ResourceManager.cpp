@@ -39,9 +39,6 @@ namespace kurento
 {
 
 #ifndef _WIN32
-static int maxOpenFiles = 0;
-static int maxThreads = 0;
-
 static int
 get_int (std::string &str, char sep, int nToken)
 {
@@ -100,8 +97,10 @@ getNumberOfThreads ()
 static int
 getMaxThreads ()
 {
+  static int maxThreads = 0;
+
   if (maxThreads == 0) {
-    struct rlimit limits;
+    struct rlimit limits {};
     getrlimit (RLIMIT_NPROC, &limits);
 
     maxThreads = limits.rlim_cur;
@@ -113,25 +112,36 @@ getMaxThreads ()
 static void
 checkThreads (float limit_percent)
 {
-  int nThreads;
-  int maxThreads = getMaxThreads ();
+  const int maxThreads = getMaxThreads ();
 
   if (maxThreads <= 0) {
     return;
   }
 
-  nThreads = getNumberOfThreads ();
+  const int maxThreadsKms = (maxThreads * limit_percent);
+  const int nThreads = getNumberOfThreads ();
 
-  if (nThreads > maxThreads * limit_percent ) {
-    throw KurentoException (NOT_ENOUGH_RESOURCES, "Too many threads");
+  if (nThreads > maxThreadsKms) {
+    std::ostringstream oss;
+    oss << "Reached maximum threshold for number of threads: " << maxThreadsKms;
+    std::string exMessage = oss.str();
+
+    oss << " (system max: " << maxThreads << ");"
+        << " set a higher limit with `ulimit -Su`, or in the KMS service settings (/etc/default/kurento-media-server)";
+    std::string logMessage = oss.str();
+
+    GST_WARNING ("%s", logMessage.c_str() );
+    throw KurentoException (NOT_ENOUGH_RESOURCES, exMessage);
   }
 }
 
-static int
+int
 getMaxOpenFiles ()
 {
+  static int maxOpenFiles = 0;
+
   if (maxOpenFiles == 0) {
-    struct rlimit limits;
+    struct rlimit limits {};
     getrlimit (RLIMIT_NOFILE, &limits);
 
     maxOpenFiles = limits.rlim_cur;
@@ -149,7 +159,7 @@ getNumberOfOpenFiles ()
 
   d = opendir ("/proc/self/fd");
 
-  while ( (dir = readdir (d) ) != NULL) {
+  while ( (dir = readdir (d) ) != nullptr) {
     openFiles ++;
   }
 
@@ -161,17 +171,27 @@ getNumberOfOpenFiles ()
 static void
 checkOpenFiles (float limit_percent)
 {
-  int nOpenFiles;
-  int maxOpenFiles = getMaxOpenFiles ();
+  const int maxOpenFiles = getMaxOpenFiles ();
 
   if (maxOpenFiles <= 0) {
     return;
   }
 
-  nOpenFiles = getNumberOfOpenFiles ();
+  const int maxOpenFilesKms = (maxOpenFiles * limit_percent);
+  const int nOpenFiles = getNumberOfOpenFiles ();
 
-  if (nOpenFiles > maxOpenFiles * limit_percent ) {
-    throw KurentoException (NOT_ENOUGH_RESOURCES, "Too many open files");
+  if (nOpenFiles > maxOpenFilesKms) {
+    std::ostringstream oss;
+    oss << "Reached maximum threshold for number of open files: "
+        << maxOpenFilesKms;
+    std::string exMessage = oss.str();
+
+    oss << " (system max: " << maxOpenFiles << ");"
+        << " set a higher limit with `ulimit -Sn`, or in the KMS service settings (/etc/default/kurento-media-server)";
+    std::string logMessage = oss.str();
+
+    GST_WARNING ("%s", logMessage.c_str() );
+    throw KurentoException (NOT_ENOUGH_RESOURCES, exMessage);
   }
 }
 #endif
@@ -225,10 +245,9 @@ void killServerOnLowResources (float limit_percent)
 
 } /* kurento */
 
-static void init_debug (void) __attribute__ ( (constructor) );
+static void init_debug() __attribute__ ( (constructor) );
 
-static void
-init_debug (void)
+static void init_debug()
 {
   GST_DEBUG_CATEGORY_INIT (GST_CAT_DEFAULT, GST_DEFAULT_NAME, 0,
                            GST_DEFAULT_NAME);
