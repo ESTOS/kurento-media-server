@@ -18,8 +18,24 @@ message(STATUS "Project version: ${PROJECT_NAME}-${PROJECT_VERSION}")
 
 # Compiler flags
 include(CommonBuildFlags)
+if(FALSE)
+message("new Compiler flags")
 common_buildflags_set()
+else()
+message("old Compiler flags")
+# Reduce default Release optimization level from -O3 to -O2
+set(CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE}   -O2")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
+
+set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -DHAVE_CONFIG_H")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHAVE_CONFIG_H")
+
+# Set GCC flags common to all projects
+set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -std=c11   -g -Wall -Werror")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g -Wall -Werror")
+endif()
 #common_buildflags_print()
+message("end Compiler flags")
 
 # FIXME Disable error when macros __TIME__, __DATE__ or __TIMESTAMP__ are encountered
 include(CheckCXXCompilerFlag)
