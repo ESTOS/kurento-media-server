@@ -76,10 +76,11 @@ public:
 
   typedef lib::shared_ptr<timer> timer_ptr;
 
-  explicit connection (bool is_server, alog_type &alog, elog_type &elog)
+  explicit connection (bool is_server, const lib::shared_ptr<alog_type> &alog,
+                       const lib::shared_ptr<elog_type> &elog)
     : m_alog (alog), m_elog (elog)
   {
-    m_alog.write (log::alevel::devel, "stub con transport constructor");
+    m_alog->write (log::alevel::devel, "stub con transport constructor");
   }
 
   /// Get a shared pointer to this component
@@ -185,7 +186,7 @@ protected:
    */
   void init (init_handler handler)
   {
-    m_alog.write (log::alevel::devel, "stub connection init");
+    m_alog->write (log::alevel::devel, "stub connection init");
     handler (make_error_code (error::not_implemented) );
   }
 
@@ -216,7 +217,7 @@ protected:
   void async_read_at_least (size_t num_bytes, char *buf, size_t len,
                             read_handler handler)
   {
-    m_alog.write (log::alevel::devel, "stub_con async_read_at_least");
+    m_alog->write (log::alevel::devel, "stub_con async_read_at_least");
     handler (make_error_code (error::not_implemented), 0);
   }
 
@@ -234,7 +235,7 @@ protected:
    */
   void async_write (char const *buf, size_t len, write_handler handler)
   {
-    m_alog.write (log::alevel::devel, "stub_con async_write");
+    m_alog->write (log::alevel::devel, "stub_con async_write");
     handler (make_error_code (error::not_implemented) );
   }
 
@@ -251,7 +252,7 @@ protected:
    */
   void async_write (std::vector<buffer> const &bufs, write_handler handler)
   {
-    m_alog.write (log::alevel::devel, "stub_con async_write buffer list");
+    m_alog->write (log::alevel::devel, "stub_con async_write buffer list");
     handler (make_error_code (error::not_implemented) );
   }
 
@@ -288,8 +289,8 @@ protected:
   }
 private:
   // member variables!
-  alog_type &m_alog;
-  elog_type &m_elog;
+  lib::shared_ptr<alog_type> m_alog;
+  lib::shared_ptr<elog_type> m_elog;
 };
 
 

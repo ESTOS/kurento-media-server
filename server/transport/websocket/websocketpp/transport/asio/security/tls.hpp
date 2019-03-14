@@ -213,6 +213,10 @@ protected:
     m_socket = lib::make_shared<socket_type> (
                  _WEBSOCKETPP_REF (*service), lib::ref (*m_context) );
 
+    if (m_socket_init_handler) {
+      m_socket_init_handler (m_hdl, get_socket() );
+    }
+
     m_io_service = service;
     m_strand = strand;
     m_is_server = is_server;
@@ -265,10 +269,6 @@ protected:
     }
 
 #endif
-
-    if (m_socket_init_handler) {
-      m_socket_init_handler (m_hdl, get_socket() );
-    }
 
     callback (lib::error_code() );
   }
@@ -360,6 +360,7 @@ protected:
     }
   }
 
+public:
   /// Translate any security policy specific information about an error code
   /**
    * Translate_ec takes an Asio error code and attempts to convert its value
@@ -380,16 +381,13 @@ protected:
    * @return The translated error code
    */
   template <typename ErrorCodeType>
+  static
   lib::error_code translate_ec (ErrorCodeType ec)
   {
     if (ec.category() == lib::asio::error::get_ssl_category() ) {
-      if (ERR_GET_REASON (ec.value() ) == SSL_R_SHORT_READ) {
-        return make_error_code (transport::error::tls_short_read);
-      } else {
-        // We know it is a TLS related error, but otherwise don't know
-        // more. Pass through as TLS generic.
-        return make_error_code (transport::error::tls_error);
-      }
+      // We know it is a TLS related error, but otherwise don't know more.
+      // Pass through as TLS generic.
+      return make_error_code (transport::error::tls_error);
     } else {
       // We don't know any more information about this error so pass
       // through
@@ -397,18 +395,11 @@ protected:
     }
   }
 
+  static
   /// Overload of translate_ec to catch cases where lib::error_code is the
   /// same type as lib::asio::error_code
   lib::error_code translate_ec (lib::error_code ec)
   {
-    // Normalize the tls_short_read error as it is used by the library and
-    // needs a consistent value. All other errors pass through natively.
-    // TODO: how to get the SSL category from std::error?
-    /*if (ec.category() == lib::asio::error::get_ssl_category()) {
-        if (ERR_GET_REASON(ec.value()) == SSL_R_SHORT_READ) {
-            return make_error_code(transport::error::tls_short_read);
-        }
-    }*/
     return ec;
   }
 private:

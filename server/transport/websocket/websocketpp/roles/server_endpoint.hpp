@@ -70,7 +70,7 @@ public:
 
   explicit server() : endpoint_type (true)
   {
-    endpoint_type::m_alog.write (log::alevel::devel, "server constructor");
+    endpoint_type::m_alog->write (log::alevel::devel, "server constructor");
   }
 
   /// Destructor
@@ -86,12 +86,12 @@ public:
 
 #ifdef _WEBSOCKETPP_MOVE_SEMANTICS_
   /// Move constructor
-  server<config> (server<config>  &&o) : endpoint<connection<config>, config>
+  server<config> (server<config> &&o) : endpoint<connection<config>, config>
     (std::move (o) ) {}
 
 #ifdef _WEBSOCKETPP_DEFAULT_DELETE_FUNCTIONS_
   // no move assignment operator because of const member variables
-  server<config> &operator= (server<config> && ) = delete;
+  server<config> &operator= (server<config> &&) = delete;
 #endif // _WEBSOCKETPP_DEFAULT_DELETE_FUNCTIONS_
 
 #endif // _WEBSOCKETPP_MOVE_SEMANTICS_
@@ -132,6 +132,11 @@ public:
     ec = lib::error_code();
     connection_ptr con = get_connection();
 
+    if (!con) {
+      ec = error::make_error_code (error::con_creation_failed);
+      return;
+    }
+
     transport_type::async_accept (
       lib::static_pointer_cast<transport_con_type> (con),
       lib::bind (&type::handle_accept, this, con, lib::placeholders::_1),
@@ -171,11 +176,11 @@ public:
       con->terminate (ec);
 
       if (ec == error::operation_canceled) {
-        endpoint_type::m_elog.write (log::elevel::info,
-                                     "handle_accept error: " + ec.message() );
+        endpoint_type::m_elog->write (log::elevel::info,
+                                      "handle_accept error: " + ec.message() );
       } else {
-        endpoint_type::m_elog.write (log::elevel::rerror,
-                                     "handle_accept error: " + ec.message() );
+        endpoint_type::m_elog->write (log::elevel::rerror,
+                                      "handle_accept error: " + ec.message() );
       }
     } else {
       con->start();
@@ -185,11 +190,11 @@ public:
     start_accept (start_ec);
 
     if (start_ec == error::async_accept_not_listening) {
-      endpoint_type::m_elog.write (log::elevel::info,
-                                   "Stopping acceptance of new connections because the underlying transport is no longer listening.");
+      endpoint_type::m_elog->write (log::elevel::info,
+                                    "Stopping acceptance of new connections because the underlying transport is no longer listening.");
     } else if (start_ec) {
-      endpoint_type::m_elog.write (log::elevel::rerror,
-                                   "Restarting async_accept loop failed: " + ec.message() );
+      endpoint_type::m_elog->write (log::elevel::rerror,
+                                    "Restarting async_accept loop failed: " + ec.message() );
     }
   }
 };
