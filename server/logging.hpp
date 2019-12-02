@@ -36,6 +36,7 @@ enum severity_level {
   debug,
   log,
   trace,
+  memdump,
   undefined
 };
 
