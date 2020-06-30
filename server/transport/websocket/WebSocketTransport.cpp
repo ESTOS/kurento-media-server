@@ -187,7 +187,7 @@ WebSocketTransport::WebSocketTransport (const boost::property_tree::ptree
         context_ptr context (new boost::asio::ssl::context (boost::asio::ssl::context::sslv23) );
 
         try {
-          context->set_options (boost::asio::ssl::context::default_workarounds |
+          context->set_options (boost::asio::ssl::context::default_workarounds
           | boost::asio::ssl::context::single_dh_use
 
           // Disable SSLv2 and SSLv3, leaving OpenSSL to negotiate with the
