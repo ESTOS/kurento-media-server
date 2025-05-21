@@ -44,7 +44,7 @@
 #include "MediaSet.hpp"
 
 #ifdef G_OS_WIN32
-#include <windows.h>
+//#include <windows.h>
 #endif
 
 #define GST_CAT_DEFAULT kurento_media_server
@@ -96,6 +96,35 @@ signal_handler (int signo)
 
   case SIGPIPE:
     GST_DEBUG ("Ignore sigpipe signal");
+    break;
+
+  default:
+    break;
+  }
+}
+#endif
+#ifdef G_OS_WIN32
+static void
+signal_handler (int signo)
+{
+  static unsigned int __terminated = 0;
+
+  switch (signo) {
+  case SIGINT:
+  case SIGTERM:
+    if (__terminated == 0) {
+      if (signo == SIGINT) {
+        GST_DEBUG ("SIGINT Terminating.");
+      }
+
+      if (signo == SIGTERM) {
+        GST_DEBUG ("SIGTERM Terminating.");
+      }
+
+      loop->quit ();
+    }
+
+    __terminated = 1;
     break;
 
   default:
@@ -264,6 +293,9 @@ main (int argc, char **argv)
   sigaction (SIGINT, &signalAction, nullptr);
   sigaction (SIGTERM, &signalAction, nullptr);
   sigaction (SIGPIPE, &signalAction, nullptr);
+#endif
+#ifdef G_OS_WIN32
+  signal (SIGINT, signal_handler);
 #endif
 
   GST_INFO ("Kurento Media Server version: %s", get_version () );
