@@ -324,6 +324,8 @@ main (int argc, char **argv)
   transport->stop();
   MediaSet::deleteMediaSet();
 
+  gst_deinit();
+
   g_slice_print_non_freed_entries ();
   GST_INFO ("Kurento Media Server stopped");
 
