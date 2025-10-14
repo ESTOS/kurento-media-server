@@ -256,7 +256,13 @@ main (int argc, char **argv)
     }
 
     if (vm.count ("help") ) {
-      std::cout << desc << "\n";
+      const std::string memcheck =
+        "  MemChecker:\n"
+        "  - if you want to use the MemChecker:\n"
+        "  - set G_SLICE=always-malloc,debug-blocks\n"
+        "  - it will write to ..\\log\\memleak.txt\n";
+
+      std::cout << desc << "\n" << memcheck;
       exit (0);
     }
 
