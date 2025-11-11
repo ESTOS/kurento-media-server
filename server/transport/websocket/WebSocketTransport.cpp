@@ -453,8 +453,10 @@ void WebSocketTransport::openHandler (ServerType *s,
 {
   auto connection = s->get_con_from_hdl (hdl);
   std::string resource = connection->get_resource();
+  std::string remote_ip = connection->get_remote_endpoint();
 
-  GST_DEBUG ("Client connected from %s", connection->get_origin().c_str() );
+  GST_DEBUG ("Client connected from %s->%s", remote_ip.c_str(),
+             connection->get_origin().c_str() );
 
   if (resource.size() >= 1 && resource[0] == '/') {
     resource = resource.substr (1);
